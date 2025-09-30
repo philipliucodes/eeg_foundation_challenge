@@ -49,15 +49,17 @@ def _to_device_float(X, y, device):
 def train_one_epoch(
     dataloader,
     model,
-    loss_fn,
     optimizer,
     device,
     target_space="rt",
     rt_min=0.2,
     rt_max=2.0,
+    engine=None,
+    ref_model=None,
 ):
     model.train()
     total_loss, sum_sq_err, n_samples = 0.0, 0.0, 0
+
     for batch in tqdm(dataloader, desc="Train", leave=False):
         X, y = _xy_from_batch(batch)
         X, y = _to_device_float(X, y, device)
@@ -68,20 +70,20 @@ def train_one_epoch(
             y_loss = y
 
         optimizer.zero_grad(set_to_none=True)
-        preds = model(X)
-        loss = loss_fn(preds, y_loss)
+
+        loss = engine.compute_loss(model, X, y_loss, ref_model=ref_model)
+
         loss.backward()
         optimizer.step()
 
         total_loss += float(loss.item())
 
-        if target_space == "logrt":
-            preds_eval = torch.exp(preds.detach())
-            y_eval = y.detach()
-        else:
-            preds_eval = preds.detach()
-            y_eval = y.detach()
-
+        preds_eval = (
+            torch.exp(model(X).detach())
+            if target_space == "logrt"
+            else model(X).detach()
+        )
+        y_eval = y.detach()
         diff = preds_eval.view(-1) - y_eval.view(-1)
         sum_sq_err += float(torch.sum(diff * diff).item())
         n_samples += int(y_eval.numel())
@@ -91,41 +93,39 @@ def train_one_epoch(
     return avg_loss, rmse
 
 
-@torch.no_grad()
 def valid_model(dataloader, model, loss_fn, device, desc="Valid", target_space="rt"):
     model.eval()
     total_loss, sum_sq_err, n_samples = 0.0, 0.0, 0
-    ys = []
-    for batch in tqdm(dataloader, desc=desc, leave=False):
-        X, y = _xy_from_batch(batch)
-        X, y = _to_device_float(X, y, device)
+    ys_np, yhat_np = [], []
 
-        if target_space == "logrt":
-            y_loss = torch.log(y + 1e-6)
-        else:
-            y_loss = y
+    with torch.no_grad():
+        for batch in tqdm(dataloader, desc=desc, leave=False):
+            X, y = _xy_from_batch(batch)
+            X, y = _to_device_float(X, y, device)
 
-        preds = model(X)
-        batch_loss = loss_fn(preds, y_loss)
-        total_loss += float(batch_loss.item())
+            y_loss = (
+                torch.log(torch.clamp(y, min=1e-6)) if target_space == "logrt" else y
+            )
 
-        if target_space == "logrt":
-            preds_eval = torch.exp(preds)
-            y_eval = y
-        else:
-            preds_eval = preds
-            y_eval = y
+            preds = model(X)
+            batch_loss = loss_fn(preds, y_loss)
+            total_loss += float(batch_loss.mean().item())
 
-        diff = preds_eval.view(-1) - y_eval.view(-1)
-        sum_sq_err += float(torch.sum(diff * diff).item())
-        n_samples += int(y_eval.numel())
-        ys.append(y_eval.detach().view(-1).cpu())
+            preds_eval = torch.exp(preds) if target_space == "logrt" else preds
+            diff = preds_eval.view(-1) - y.view(-1)
+            sum_sq_err += float(torch.sum(diff * diff).item())
+            n_samples += int(y.numel())
+
+            ys_np.append(y.view(-1).detach().cpu().numpy())
+            yhat_np.append(preds_eval.view(-1).detach().cpu().numpy())
 
     avg_loss = total_loss / max(len(dataloader), 1)
-    rmse = (sum_sq_err / max(n_samples, 1)) ** 0.5
-    y_true = torch.cat(ys)
-    std_y = torch.std(y_true, unbiased=False).item()
-    nrmse = rmse / (std_y + 1e-12)
+
+    y_true = np.concatenate(ys_np, axis=0)
+    y_pred = np.concatenate(yhat_np, axis=0)
+    rmse = np.sqrt(np.mean((y_pred - y_true) ** 2))
+    nrmse = rmse / np.std(y_true, ddof=0)
+
     return avg_loss, rmse, nrmse
 
 
@@ -274,10 +274,19 @@ def main():
 
     model = EEGNeXRegressor(n_chans=129, n_times=200, sfreq=100).to(device)
 
+    ref_model = None
+    if args.ref_ckpt:
+        ref_model = EEGNeXRegressor(n_chans=129, n_times=200, sfreq=100).to(device)
+        ref_model.load_state_dict(torch.load(args.ref_ckpt, map_location=device))
+        ref_model.eval()
+        for p in ref_model.parameters():
+            p.requires_grad_(False)
+
     if args.loss == "huber":
-        loss_fn = nn.HuberLoss(delta=0.05)
-    else:
-        loss_fn = nn.MSELoss()
+        loss_fn = nn.HuberLoss(delta=args.huber_delta, reduction="none")
+    elif args.loss == "mse":
+        loss_fn = nn.MSELoss(reduction="none")
+
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay
     )
@@ -285,20 +294,39 @@ def main():
         optimizer, T_max=max(args.epochs - 1, 1)
     )
 
+    def per_example_loss(preds: torch.Tensor, y_loss: torch.Tensor) -> torch.Tensor:
+        per_ex = loss_fn(preds, y_loss)
+        if per_ex.ndim > 1:
+            axes = tuple(range(1, per_ex.ndim))
+            per_ex = per_ex.mean(dim=axes)
+        return per_ex
+
+    steer_cfg = SteeringConfig(
+        mode=args.steer_mode,
+        tau=args.tau,
+        topk_frac=args.topk_frac,
+        mix_lambda=args.mix_lambda,
+        distill_gamma=args.distill_gamma,
+    )
+    engine = SteeringEngine(cfg=steer_cfg, loss_per_example=per_example_loss)
+
     best_nrmse, best_state = float("inf"), None
     patience, no_improve, min_delta = args.patience, 0, args.min_delta
 
     for epoch in range(1, args.epochs + 1):
-        print(f"\nEpoch {epoch}/{args.epochs}")
+        engine.cfg.mode = "none" if epoch <= args.warmup_epochs else args.steer_mode
+        print(f"\nEpoch {epoch}/{args.epochs} (mode={engine.cfg.mode})")
+
         tr_loss, tr_rmse = train_one_epoch(
             train_loader,
             model,
-            loss_fn,
             optimizer,
             device,
             target_space=args.target_space,
             rt_min=args.rt_min,
             rt_max=args.rt_max,
+            engine=engine,
+            ref_model=ref_model,
         )
         va_loss, va_rmse, va_nrmse = valid_model(
             valid_loader,
