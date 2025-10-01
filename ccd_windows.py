@@ -22,18 +22,13 @@ from eegdash.hbn.windows import (
 def build_ccd_windows(cache_root: Path, mini: bool = False) -> BaseConcatDataset:
     releases = [f"R{i}" for i in range(1, 12)]
     datasets = []
-
     for r in releases:
         cache_r = Path(cache_root) / f"{r}_L100_bdf"
         assert (cache_r / "dataset_description.json").exists(), f"Missing {cache_r}"
         ds = EEGChallengeDataset(
-            task="contrastChangeDetection",
-            release=r,
-            cache_dir=cache_r,
-            mini=mini,
+            task="contrastChangeDetection", release=r, cache_dir=cache_r, mini=mini
         )
         datasets.append(ds)
-
     dataset_ccd = BaseConcatDataset(datasets)
 
     EPOCH_LEN_S = 2.0
@@ -57,7 +52,6 @@ def build_ccd_windows(cache_root: Path, mini: bool = False) -> BaseConcatDataset
     WINDOW_LEN_S = 2.0
 
     dataset = keep_only_recordings_with(ANCHOR, dataset_ccd)
-
     single_windows = create_windows_from_events(
         dataset,
         mapping={ANCHOR: 0},
@@ -68,7 +62,6 @@ def build_ccd_windows(cache_root: Path, mini: bool = False) -> BaseConcatDataset
         preload=True,
         verbose=False,
     )
-
     single_windows = add_extras_columns(
         single_windows,
         dataset,
@@ -104,7 +97,6 @@ def split_ccd_by_subject(
     ],
 ) -> Tuple[BaseConcatDataset, BaseConcatDataset, BaseConcatDataset]:
     meta_information = single_windows.get_metadata()
-
     subjects = meta_information["subject"].unique()
     subjects = [s for s in subjects if s not in sub_rm]
 
@@ -114,7 +106,6 @@ def split_ccd_by_subject(
         random_state=check_random_state(seed),
         shuffle=True,
     )
-
     valid_subj, test_subj = train_test_split(
         valid_test_subject,
         test_size=test_frac,
@@ -126,7 +117,6 @@ def split_ccd_by_subject(
 
     subject_split = single_windows.split("subject")
     train_set, valid_set, test_set = [], [], []
-
     for s in subject_split:
         if s in train_subj:
             train_set.append(subject_split[s])
@@ -139,9 +129,9 @@ def split_ccd_by_subject(
     valid_set = BaseConcatDataset(valid_set)
     test_set = BaseConcatDataset(test_set)
 
-    print("Number of examples in each split")
-    print(f"Train:\t{len(train_set)}")
-    print(f"Valid:\t{len(valid_set)}")
-    print(f"Test:\t{len(test_set)}")
+    # print("Number of examples in each split")
+    # print(f"Train:\t{len(train_set)}")
+    # print(f"Valid:\t{len(valid_set)}")
+    # print(f"Test:\t{len(test_set)}")
 
     return train_set, valid_set, test_set
