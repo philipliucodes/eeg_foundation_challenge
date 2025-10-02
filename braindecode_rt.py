@@ -11,29 +11,44 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
 
-from braindecode.models import (
-    EEGNeX,
-    BDTCN,
-    TIDNet,
-    ATCNet,
-    EEGConformer,
-    ShallowFBCSPNet,
-    Deep4Net,
-    Labram,
-)
+import braindecode.models as bdm
 
 from ccd_windows import build_ccd_windows, split_ccd_by_subject
 
 
 ARCH_CHOICES = [
-    "eegnex",
-    "bdtcn",
-    "tidnet",
-    "atcnet",
-    "eegconformer",
+    "eegnet",
     "shallow",
     "deep4",
+    "eegtcnet",
+    "eegsimpleconv",
+    "eegnex",
+    "eegconformer",
     "labram",
+    "biot",
+    "msvtnet",
+    "attentionbasenet",
+    "bdtcn",
+    "fbcnet",
+    "fbmsnet",
+    "ifnet",
+    "tsception",
+    "sincshallownet",
+    "eegitnet",
+    "eeginceptionerp",
+    "eeginceptionmi",
+    "tidnet",
+    "sccnet",
+    "syncnet",
+    "sparcnet",
+    "atcnet",
+    "contrawr",
+    "eegminer",
+    "signaljepa",
+    "signaljepa_contextual",
+    "signaljepa_postlocal",
+    "signaljepa_prelocal",
+    "ctnet",
 ]
 
 
@@ -100,30 +115,109 @@ def _auto_seed() -> int:
 
 
 def make_model(arch: str, n_chans=129, n_times=200, sfreq=100):
-    arch = arch.lower()
+    def _std_ctor(cls):
+        return cls(n_outputs=1, n_chans=n_chans, n_times=n_times, sfreq=sfreq)
+
+    input_window_seconds = float(n_times) / float(sfreq)
+
     if arch == "eegnex":
-        return EEGNeX(n_chans=n_chans, n_times=n_times, sfreq=sfreq, n_outputs=1)
+        return _std_ctor(bdm.EEGNeX)
+
     if arch == "bdtcn":
-        return BDTCN(n_chans=n_chans, n_times=n_times, sfreq=sfreq, n_outputs=1)
+        return _std_ctor(bdm.BDTCN)
+
     if arch == "tidnet":
-        return TIDNet(n_chans=n_chans, n_times=n_times, sfreq=sfreq, n_outputs=1)
+        return _std_ctor(bdm.TIDNet)
+
     if arch == "atcnet":
-        return ATCNet(
+        return bdm.ATCNet(
             n_chans=n_chans,
             n_outputs=1,
-            input_window_seconds=float(n_times) / float(sfreq),
+            input_window_seconds=input_window_seconds,
             sfreq=sfreq,
         )
+
     if arch == "eegconformer":
-        return EEGConformer(n_chans=n_chans, n_times=n_times, sfreq=sfreq, n_outputs=1)
+        return _std_ctor(bdm.EEGConformer)
+
     if arch == "shallow":
-        return ShallowFBCSPNet(
-            n_chans=n_chans, n_times=n_times, sfreq=sfreq, n_outputs=1
-        )
+        return _std_ctor(bdm.ShallowFBCSPNet)
+
     if arch == "deep4":
-        return Deep4Net(n_chans=n_chans, n_times=n_times, sfreq=sfreq, n_outputs=1)
+        return _std_ctor(bdm.Deep4Net)
+
     if arch == "labram":
-        return Labram(n_times=n_times, n_outputs=1, sfreq=sfreq, chs_info=None)
+        return _std_ctor(bdm.Labram)
+
+    if arch == "biot":
+        return _std_ctor(bdm.BIOT)
+
+    if arch == "msvtnet":
+        return _std_ctor(bdm.MSVTNet)
+
+    if arch == "attentionbasenet":
+        return _std_ctor(bdm.AttentionBaseNet)
+
+    if arch == "fbcnet":
+        return _std_ctor(bdm.FBCNet)
+
+    if arch == "fbmsnet":
+        return _std_ctor(bdm.FBMSNet)
+
+    if arch == "ifnet":
+        return _std_ctor(bdm.IFNet)
+
+    if arch == "tsception":
+        return _std_ctor(bdm.TSception)
+
+    if arch == "sincshallownet":
+        return _std_ctor(bdm.SincShallowNet)
+
+    if arch == "eegitnet":
+        return _std_ctor(bdm.EEGITNet)
+
+    if arch == "eeginceptionerp":
+        return _std_ctor(bdm.EEGInceptionERP)
+
+    if arch == "eeginceptionmi":
+        return _std_ctor(bdm.EEGInceptionMI)
+
+    if arch == "sccnet":
+        return _std_ctor(bdm.SCCNet)
+
+    if arch == "syncnet":
+        return _std_ctor(bdm.SyncNet)
+
+    if arch == "sparcnet":
+        return _std_ctor(bdm.SPARCNet)
+
+    if arch == "eegtcnet":
+        return _std_ctor(bdm.EEGTCNet)
+
+    if arch == "eegsimpleconv":
+        return _std_ctor(bdm.EEGSimpleConv)
+
+    if arch == "contrawr":
+        return _std_ctor(bdm.ContraWR)
+
+    if arch == "eegminer":
+        return _std_ctor(bdm.EEGMiner)
+
+    if arch == "signaljepa":
+        return _std_ctor(bdm.SignalJEPA)
+
+    if arch == "signaljepa_contextual":
+        return _std_ctor(bdm.SignalJEPA_Contextual)
+
+    if arch == "signaljepa_postlocal":
+        return _std_ctor(bdm.SignalJEPA_PostLocal)
+
+    if arch == "signaljepa_prelocal":
+        return _std_ctor(bdm.SignalJEPA_PreLocal)
+
+    if arch == "ctnet":
+        return _std_ctor(bdm.CTNet)
+
     raise ValueError(f"Unknown arch: {arch}")
 
 
