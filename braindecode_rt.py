@@ -288,7 +288,7 @@ def train_one_epoch(
 @torch.no_grad()
 def valid_model(dataloader, model, loss_fn, device, desc="Valid", target_space="rt"):
     model.eval()
-    total_loss, sum_sq_err, n_samples = 0.0, 0.0, 0
+    total_loss = 0.0
     y_true_list, y_pred_list = [], []
     for batch in tqdm(dataloader, desc=desc, leave=False):
         X, y = _xy_from_batch(batch)
@@ -309,10 +309,6 @@ def valid_model(dataloader, model, loss_fn, device, desc="Valid", target_space="
         else:
             preds_eval = preds
             y_eval = y
-
-        diff = preds_eval.view(-1) - y_eval.view(-1)
-        sum_sq_err += float(torch.sum(diff * diff).item())
-        n_samples += int(y_eval.numel())
 
         y_true_list.append(y_eval.detach().view(-1).cpu().numpy())
         y_pred_list.append(preds_eval.detach().view(-1).cpu().numpy())
