@@ -12,48 +12,37 @@ Run training with:
 ## Arguments
 
 ### Required
---cache_root (str, required)  
-Path to the CCD cache directory. Example: /data/ccd  
+- **`--cache_root`** *(str, required)*  
+  Path to the CCD cache directory. Example: `/data/ccd`  
 
 ### Data
---mini (flag)  
-Use a small subset for quick smoke tests.  
+- **`--mini`** *(flag)*  
+  Use a small subset for quick smoke tests.  
 
 ### Target & Loss
---target_space {rt, logrt} (default: rt)  
-Train on raw RT (“rt”) or log-RT (“logrt”). When “logrt”, training targets are clamped to [rt_min, rt_max] and evaluation is exponentiated back to RT.  
---loss {huber, mse} (default: huber)  
-Regression loss.  
---huber_delta (float, default: 0.05)  
-δ parameter for Huber when using huber loss.  
---rt_min (float, default: 0.2), --rt_max (float, default: 2.0)  
-Clamp range for RT when using logRT.  
+- **`--target_space {rt, logrt}`** *(default: rt)*  
+  Train on raw RT (`rt`) or log-RT (`logrt`). When `logrt`, targets are clamped to `[rt_min, rt_max]` and evaluation is exponentiated back to RT.  
+- **`--loss {huber, mse}`** *(default: huber)*  
+  Regression loss function.  
+- **`--huber_delta`** *(float, default: 0.05)*  
+  δ parameter for Huber loss.  
+- **`--rt_min`, `--rt_max`** *(floats, defaults: 0.2 and 2.0)*  
+  Clamp range for RT when using logRT.  
 
 ### Optimization
---batch_size (int, default: 128)  
-Mini-batch size.  
---epochs (int, default: 100)  
-Maximum training epochs.  
---lr (float, default: 1e-3)  
-Learning rate for AdamW.  
---weight_decay (float, default: 1e-5)  
-Weight decay for AdamW.  
---num_workers (int, default: 2)  
-Number of DataLoader workers.  
---arch (choice, default: eegnex)  
-Model architecture (see ARCH_CHOICES in the file).  
+- **`--batch_size`** *(int, default: 128)* – Mini-batch size.  
+- **`--epochs`** *(int, default: 100)* – Maximum training epochs.  
+- **`--lr`** *(float, default: 1e-3)* – Learning rate for AdamW.  
+- **`--weight_decay`** *(float, default: 1e-5)* – Weight decay for AdamW.  
+- **`--num_workers`** *(int, default: 2)* – Number of DataLoader workers.  
+- **`--arch`** *(choice, default: eegnex)* – Model architecture (see `ARCH_CHOICES` in code).  
 
 ### Misc & Run Settings
---patience (int, default: 15)  
-Early-stopping patience on validation nRMSE.  
---min_delta (float, default: 0.0)  
-Minimum improvement in nRMSE to reset patience.  
---save_path (str, default: <arch>.pt)  
-Where to save best model weights.  
---seed (int, default: -1)  
-Random seed. If <0, a secure auto-seed is used.  
---deterministic (flag)  
-Enable deterministic PyTorch/CuDNN (slower, reproducible).  
+- **`--patience`** *(int, default: 15)* – Early-stopping patience on validation nRMSE.  
+- **`--min_delta`** *(float, default: 0.0)* – Minimum improvement in nRMSE to reset patience.  
+- **`--save_path`** *(str, default: <arch>.pt)* – File path to save the best model weights.  
+- **`--seed`** *(int, default: -1)* – Random seed; if `<0`, a secure auto-seed is used.  
+- **`--deterministic`** *(flag)* – Enable deterministic PyTorch/CuDNN (slower, but reproducible).  
 
 ## Notes
 - Data is windowed and split by subject using `ccd_windows.py`.  
