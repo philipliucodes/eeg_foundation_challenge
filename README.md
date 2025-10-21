@@ -60,12 +60,17 @@ Enable deterministic PyTorch/CuDNN (slower, reproducible).
 - When target_space=logrt the model trains in log-space, but metrics are reported in RT units.
 
 ## Examples
+
 ### Default model (EEGNeX)
 
-<pre> python braindecode.py --cache_root /data/ccd --arch eegnex <pre>
+<pre>
+python braindecode.py --cache_root /data/ccd --arch eegnex
+</pre>
 
 ### EEGConformer with logRT and MSE loss
 
-<pre> python braindecode.py --cache_root /data/ccd --arch eegconformer
---target_space logrt --loss mse --epochs 150 --patience 20
---save_path runs/eegconformer_logrt.pt <pre>
+<pre>
+python braindecode.py --cache_root /data/ccd --arch eegconformer \
+  --target_space logrt --loss mse --epochs 150 --patience 20 \
+  --save_path runs/eegconformer_logrt.pt
+</pre>
