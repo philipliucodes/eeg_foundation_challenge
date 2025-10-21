@@ -7,7 +7,7 @@ Code for EEG Foundation Challenge 1.
 
 Run training with:  
 
-<pre> ```bash python braindecode.py --cache_root /path/to/cache [other arguments...] ``` </pre>
+<pre> python braindecode.py --cache_root /path/to/cache [other arguments...] </pre>
 
 ## Arguments
 
